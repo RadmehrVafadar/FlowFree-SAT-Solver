@@ -1,5 +1,6 @@
 from bauhaus import Encoding, proposition, constraint
 from nnf import Var
+from typing import List, Tuple
 
 from example import example2
 
@@ -75,6 +76,59 @@ def connections(e_cell_instance):
 gridTranslate(example2)
 for cell in CELLS: 
      connections(cell)
+
+
+@proposition(e)
+class colored_cell(object):
+    # Represents a cell having a specific color
+    def __init__(self, cell: e_cell, color: str) -> None:
+        self.cell = cell
+        self.color = color
+    
+    def __repr__(self):
+        return f"ColoredCell({self.cell}, {self.color})"
+
+@proposition(e)
+class path_exists(object):
+    # Represents that there exists a path from one cell to another
+    def __init__(self, from_cell: tuple, to_cell: tuple, color: str) -> None:
+        self.from_cell = from_cell
+        self.to_cell = to_cell
+        self.color = color
+    
+    def __repr__(self):
+        return f"Path({self.from_cell}->{self.to_cell}, {self.color})"
+
+def build_comes_from_somewhere_constraint():
+    # For each cell
+    for cell in CELLS:
+        cell_coord = (cell.x, cell.y)
+        
+        # Get neighbors for this cell
+        connections(cell)
+        
+        # For each endpoint color
+        for endpoint in ENDPOINTS:
+            # Skip if this cell is an endpoint
+            if any(ep for ep in ENDPOINTS if 
+                  (ep.color == endpoint.color and 
+                   ((ep.cell_1.x == cell.x and ep.cell_1.y == cell.y) or 
+                    (ep.cell_2.x == cell.x and ep.cell_2.y == cell.y)))):
+                continue
+            
+            # Create path propositions for this cell to its neighbors
+            neighbor_paths = []
+            for connection in CONNECTIONS:
+                from_cell, to_cell = connection.split(" -> ")
+                from_cell = eval(from_cell)  # converts string "(x,y)" to tuple
+                to_cell = eval(to_cell)
+                neighbor_paths.append(path_exists(from_cell, to_cell, endpoint.color))
+            
+            # If this cell has this color, then at least one path must exist to a neighbor with the same color
+            colored_cell_prop = colored_cell(cell, endpoint.color)
+            constraint.add_implies_at_least_one(e, colored_cell_prop, neighbor_paths)
+
+
 
 print(CELLS)
 print("----------------------------")
