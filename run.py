@@ -31,8 +31,8 @@ class endpoint(object):
         self.cell_2 = cell_2
         self.color = color
 
-    def __repr__(self):
-        return f"{self.color}: {self.cell_1} -> {self.cell_2}"
+    def _prop_name(self):
+         return f"{self.color}: {self.cell_1} -> {self.cell_2}"
 
 @proposition(e)
 class e_cell(object):
@@ -40,8 +40,8 @@ class e_cell(object):
         self.x = x
         self.y = y
 
-    def __repr__(self):
-        return f"Cell({self.x}, {self.y})"
+    def _prop_name(self):
+         return f"{self.x , self.y}"
 
 @proposition(e)  # <-- Add a new proposition class for CellColor
 class CellColor(object):
@@ -52,12 +52,15 @@ class CellColor(object):
 
     def __repr__(self):
         return f"Cell({self.x}, {self.y}) is {self.color}"
+    def _prop_name(self):  # <-- Define _prop_name method
+        return f"CellColor({self.x}, {self.y}, {self.color})"
 
 def add_paths_cannot_cross_constraint():
     colors = set(endpoint.color for endpoint in ENDPOINTS)  # <-- Collect all colors from ENDPOINTS
     for cell in CELLS:
         vars = [CellColor(cell.x, cell.y, color) for color in colors]  # <-- Create CellColor variables
         constraint.add_exactly_one(e, *vars)  # <-- Exactly one color per cell
+        
 
 def connections(e_cell_instance):
     x = e_cell_instance.x
