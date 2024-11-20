@@ -65,7 +65,7 @@ class colored_cell(object):
         self.cell = cell
         self.color = color
     
-    def __repr__(self):
+    def _prop_name(self):
         return f"ColoredCell({self.cell}, {self.color})"
 
 @proposition(e)
@@ -76,7 +76,7 @@ class path_exists(object):
         self.to_cell = to_cell
         self.color = color
     
-    def __repr__(self):
+    def _prop_name(self):
         return f"Path({self.from_cell}->{self.to_cell}, {self.color})"
 
 def build_comes_from_somewhere_constraint():
