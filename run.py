@@ -105,22 +105,19 @@ def build_comes_from_somewhere_constraint():
             
             # If this cell has this color, then at least one path must exist to a neighbor with the same color
             colored_cell_prop = colored_cell(cell, endpoint.color)
-            constraint.add_implies_at_least_one(e, colored_cell_prop, neighbor_paths)
+            constraint.at_least_one(neighbor_paths)
+            constraint.implies_all(colored_cell_prop, neighbor_paths)
 
 def build_no_crossing_paths_constraint():
     # For each cell
     for cell in CELLS:
-        # For each pair of endpoint colors
-        for endpoint1 in ENDPOINTS:
-            for endpoint2 in ENDPOINTS:
-                # Skip if same endpoint pair
-                if endpoint1 == endpoint2:
-                    continue
-                    
-                # A cell cannot be part of two different colored paths
-                cell_color1 = colored_cell(cell, endpoint1.color)
-                cell_color2 = colored_cell(cell, endpoint2.color)
-                constraint.add_nand(e, [cell_color1, cell_color2])
+        # Get all possible colors for this cell
+        cell_colors = []
+        for endpoint in ENDPOINTS:
+            cell_colors.append(colored_cell(cell, endpoint.color))
+            
+        # A cell can have at most one color
+        constraint.at_most_one(cell_colors)
 
 
 build_comes_from_somewhere_constraint()
