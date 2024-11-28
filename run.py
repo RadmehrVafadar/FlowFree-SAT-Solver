@@ -13,7 +13,7 @@ COLS = 5
 COLORS = ["red", "blue"]
 INITIAL_POSITIONS = {
     "red": [(1, 1), (1, 5)],  # Start and end points for red
-    "blue": [(2, 1), (5, 5)]  # Start and end points for blue
+    "blue": [(2, 1), (5, 1)]  # Start and end points for blue
 }
 
 # All cells on the board
@@ -43,6 +43,7 @@ class Path(object):
     def _prop_name(self):
         return f"Path({self.color}, {self.cell})"
 
+
 @proposition(E)
 class Connection(object):
     """Connection between two cells for a specific color."""
@@ -61,26 +62,49 @@ class Connection(object):
 def add_path_constraints():
     """Ensure valid paths for all colors."""
     for color in COLORS:
-        # Each path must include its start and end points
         start, end = INITIAL_POSITIONS[color]
         start_cell = f"c{start[0]}{start[1]}"
         end_cell = f"c{end[0]}{end[1]}"
-        E.add_constraint(Path(color, start_cell))
-        E.add_constraint(Path(color, end_cell))
 
-        # All other cells may or may not belong to the path
-        for cell in CELLS:
-            E.add_constraint(Or(Path(color, cell), ~Path(color, cell)))
+        # Start and end cells must connect to exactly one neighbor
+        start_neighbors = [Connection(color, start_cell, n) for n in get_adjacent_cells(*start)]
+        end_neighbors = [Connection(color, end_cell, n) for n in get_adjacent_cells(*end)]
 
-def add_connection_constraints():
-    """Ensure connections between neighboring cells."""
+        constraint.add_exactly_one(E, *start_neighbors)
+        constraint.add_exactly_one(E, *end_neighbors)
+
+
+def add_continuity_constraints():
+    """Ensure path continuity (2 neighbors for path cells, 1 for endpoints)."""
     for color in COLORS:
         for cell in CELLS:
             row, col = int(cell[1]), int(cell[2])
             neighbors = get_adjacent_cells(row, col)
+
+            # Connections for this cell
+            connections = [Connection(color, cell, neighbor) for neighbor in neighbors]
+
+            if cell in [f"c{pos[0]}{pos[1]}" for pos in INITIAL_POSITIONS[color]]:
+                # Start or end cells: already constrained to exactly one connection
+                continue
+
+            # Internal cells must connect to exactly two neighbors
+            constraint.add_exactly_one(E, *connections)
+
+            # Ensure bidirectional connections
+            for neighbor in neighbors:
+                E.add_constraint(Connection(color, cell, neighbor) >> Connection(color, neighbor, cell))
+
+def add_connection_constraints():
+    """Ensure valid connections between neighboring cells."""
+    for color in COLORS:
+        for cell in CELLS:
+            row, col = int(cell[1]), int(cell[2])
+            neighbors = get_adjacent_cells(row, col)
+
             # If a cell is part of a path, it must connect to at least one neighbor
             E.add_constraint(Path(color, cell) >> Or([Connection(color, cell, neighbor) for neighbor in neighbors]))
-            # Ensure connections are bidirectional
+            # Connection implies both cells are part of the path
             for neighbor in neighbors:
                 E.add_constraint(Connection(color, cell, neighbor) >> (Path(color, cell) & Path(color, neighbor)))
 
@@ -88,19 +112,39 @@ def add_exclusivity_constraints():
     """Ensure cells belong to at most one path."""
     for cell in CELLS:
         path_membership = [Path(color, cell) for color in COLORS]
-        constraint.add_at_most_one(E, path_membership)
+        constraint.add_at_most_one(E, *path_membership)
 
+def add_bidirectional_constraints():
+    """Ensure connections are symmetric."""
+    for color in COLORS:
+        for cell1 in CELLS:
+            for cell2 in get_adjacent_cells(int(cell1[1]), int(cell1[2])):
+                E.add_constraint(
+                    Connection(color, cell1, cell2) >> Connection(color, cell2, cell1)
+                )
+                E.add_constraint(
+                    Connection(color, cell2, cell1) >> Connection(color, cell1, cell2)
+                )
+
+def add_completeness_constraints():
+    """Ensure every cell is part of some path."""
+    for cell in CELLS:
+        path_membership = [Path(color, cell) for color in COLORS]
+        constraint.add_exactly_one(E, *path_membership)
 
 # Main Encoding
 def flow_free_theory():
     add_path_constraints()
     add_connection_constraints()
+    add_continuity_constraints()
     add_exclusivity_constraints()
+    # unComment
+    add_bidirectional_constraints()
+    add_completeness_constraints()
     return E
 
 
-# Solve the Theory
-
+# Solve the problem
 if __name__ == "__main__":
     T = flow_free_theory().compile()
     solution = T.solve()
