@@ -73,27 +73,42 @@ def add_path_constraints():
         constraint.add_exactly_one(E, *start_neighbors)
         constraint.add_exactly_one(E, *end_neighbors)
 
-
 def add_continuity_constraints():
     """Ensure path continuity (2 neighbors for path cells, 1 for endpoints)."""
     for color in COLORS:
         for cell in CELLS:
             row, col = int(cell[1]), int(cell[2])
             neighbors = get_adjacent_cells(row, col)
-
-            # Connections for this cell
             connections = [Connection(color, cell, neighbor) for neighbor in neighbors]
-
-            if cell in [f"c{pos[0]}{pos[1]}" for pos in INITIAL_POSITIONS[color]]:
-                # Start or end cells: already constrained to exactly one connection
-                continue
-
-            # Internal cells must connect to exactly two neighbors
-            constraint.add_exactly_one(E, *connections)
-
-            # Ensure bidirectional connections
+            
+            # Check if this is an endpoint
+            is_endpoint = cell in [f"c{pos[0]}{pos[1]}" for pos in INITIAL_POSITIONS[color]]
+            
+            if is_endpoint:
+                continue  # Skip endpoints as they're handled in add_path_constraints
+            
+            # For cells that are part of this color's path, they must have exactly two connections
+            # We'll use a combination of at_least_one and at_most_one constraints
+            # to ensure exactly two connections
+            
+            # If cell is part of path, must have at least two connections
+            pairs = []
+            for i in range(len(connections)):
+                for j in range(i+1, len(connections)):
+                    pairs.append(And(connections[i], connections[j]))
+            
+            E.add_constraint(Path(color, cell) >> Or(pairs))
+            
+            # Cannot have more than two connections
+            if len(connections) >= 3:
+                for i in range(len(connections)):
+                    for j in range(i+1, len(connections)):
+                        for k in range(j+1, len(connections)):
+                            E.add_constraint(~(connections[i] & connections[j] & connections[k]))
+            
+            # A cell with any connection must be part of the path
             for neighbor in neighbors:
-                E.add_constraint(Connection(color, cell, neighbor) >> Connection(color, neighbor, cell))
+                E.add_constraint(Connection(color, cell, neighbor) >> Path(color, cell))
 
 def add_connection_constraints():
     """Ensure valid connections between neighboring cells."""
@@ -114,6 +129,8 @@ def add_exclusivity_constraints():
         path_membership = [Path(color, cell) for color in COLORS]
         constraint.add_at_most_one(E, *path_membership)
 
+
+# This method is considerd redundant.
 def add_bidirectional_constraints():
     """Ensure connections are symmetric."""
     for color in COLORS:
@@ -132,6 +149,37 @@ def add_completeness_constraints():
         path_membership = [Path(color, cell) for color in COLORS]
         constraint.add_exactly_one(E, *path_membership)
 
+def add_endpoint_constraints():
+    """Ensure endpoints are part of their respective paths."""
+    for color in COLORS:
+        start, end = INITIAL_POSITIONS[color]
+        start_cell = f"c{start[0]}{start[1]}"
+        end_cell = f"c{end[0]}{end[1]}"
+        
+        E.add_constraint(Path(color, start_cell))
+        E.add_constraint(Path(color, end_cell))
+
+def visualize_solution(solution):
+    """Print the board with colored paths."""
+    for row in range(1, ROWS + 1):
+        line = ""
+        for col in range(1, COLS + 1):
+            cell = f"c{row}{col}"
+            cell_char = "."
+            connections = []
+            
+            # Find which color this cell belongs to
+            for color in COLORS:
+                if solution[Path(color, cell)]:
+                    cell_char = color[0].upper()
+                    # Check if it's an endpoint
+                    if any(pos[0] == row and pos[1] == col for pos in INITIAL_POSITIONS[color]):
+                        cell_char = f"({cell_char})"
+            line += f"{cell_char:3}"
+        print(line)
+
+
+
 # Main Encoding
 def flow_free_theory():
     add_path_constraints()
@@ -139,10 +187,10 @@ def flow_free_theory():
     add_continuity_constraints()
     add_exclusivity_constraints()
     # unComment
-    add_bidirectional_constraints()
+    # add_bidirectional_constraints()
     add_completeness_constraints()
+    add_endpoint_constraints()
     return E
-
 
 # Solve the problem
 if __name__ == "__main__":
@@ -150,9 +198,6 @@ if __name__ == "__main__":
     solution = T.solve()
     if solution:
         print("Solution found:")
-        for cell in CELLS:
-            for color in COLORS:
-                if solution[Path(color, cell)]:
-                    print(f"{cell}: {color}")
+        visualize_solution(solution)
     else:
         print("No solution!")
