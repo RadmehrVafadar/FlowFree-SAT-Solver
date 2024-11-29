@@ -6,14 +6,14 @@ config.sat_backend = "kissat"
 E = Encoding()
 
 # Board dimensions
-ROWS = 5
-COLS = 5
+ROWS = 3
+COLS = 3
 
 # Colors and initial positions for paths
 COLORS = ["red", "blue"]
 INITIAL_POSITIONS = {
-    "red": [(1, 1), (1, 5)],  # Start and end points for red
-    "blue": [(2, 1), (5, 1)]  # Start and end points for blue
+    "red": [(1, 1), (1, 3)],  # Start and end points for red
+    "blue": [(2, 1), (3, 3)]  # Start and end points for blue
 }
 
 # All cells on the board
@@ -149,16 +149,7 @@ def add_completeness_constraints():
         path_membership = [Path(color, cell) for color in COLORS]
         constraint.add_exactly_one(E, *path_membership)
 
-def add_endpoint_constraints():
-    """Ensure endpoints are part of their respective paths."""
-    for color in COLORS:
-        start, end = INITIAL_POSITIONS[color]
-        start_cell = f"c{start[0]}{start[1]}"
-        end_cell = f"c{end[0]}{end[1]}"
-        
-        E.add_constraint(Path(color, start_cell))
-        E.add_constraint(Path(color, end_cell))
-
+# Visualization Method
 def visualize_solution(solution):
     """Print the board with colored paths."""
     for row in range(1, ROWS + 1):
@@ -186,10 +177,9 @@ def flow_free_theory():
     add_connection_constraints()
     add_continuity_constraints()
     add_exclusivity_constraints()
-    # unComment
-    # add_bidirectional_constraints()
+    add_bidirectional_constraints()
     add_completeness_constraints()
-    add_endpoint_constraints()
+    
     return E
 
 # Solve the problem
