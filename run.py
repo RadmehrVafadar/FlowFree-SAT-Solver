@@ -6,15 +6,17 @@ config.sat_backend = "kissat"
 E = Encoding()
 
 # Board dimensions
-ROWS = 3
-COLS = 3
+ROWS = 5
+COLS = 5
 
 # Colors and initial positions for paths
-COLORS = ["red", "blue"]
+COLORS = ["red", "blue", "green"]
 INITIAL_POSITIONS = {
-    "red": [(1, 1), (1, 3)],  # Start and end points for red
-    "blue": [(2, 1), (3, 3)]  # Start and end points for blue
+    "red": [(1, 1), (1, 5)],  # Start and end points for red
+    "blue": [(2, 1), (5, 5)],  # Start and end points for blue
+    "green": [(3, 1), (5, 4)] # Start and end points for green
 }
+
 
 # All cells on the board
 CELLS = [f"c{r}{c}" for r in range(1, ROWS + 1) for c in range(1, COLS + 1)]
@@ -43,6 +45,27 @@ class Path(object):
     def _prop_name(self):
         return f"Path({self.color}, {self.cell})"
 
+
+def add_path_continuity_constraint():
+    """Ensure each path forms a continuous connection between start and end points."""
+    for color in COLORS:
+        start, end = INITIAL_POSITIONS[color]
+        start_cell = f"c{start[0]}{start[1]}"
+
+        # The starting cell is reachable by definition
+        E.add_constraint(Path(color, start_cell))
+
+        # For every cell, if it's reachable, at least one neighbor must also be reachable
+        for cell in CELLS:
+            row, col = int(cell[1]), int(cell[2])
+            neighbors = get_adjacent_cells(row, col)
+
+            # Reachability propagates from connected cells
+            E.add_constraint(Path(color, cell) >> Or([Connection(color, cell, neighbor) & Path(color, neighbor) for neighbor in neighbors]))
+
+        # The end cell must be reachable
+        end_cell = f"c{end[0]}{end[1]}"
+        E.add_constraint(Path(color, end_cell))
 
 @proposition(E)
 class Connection(object):
@@ -143,6 +166,17 @@ def add_bidirectional_constraints():
                     Connection(color, cell2, cell1) >> Connection(color, cell1, cell2)
                 )
 
+def add_connected_cells_same_color_constraint():
+    """Ensure that connected cells have the same color."""
+    for color in COLORS:
+        for cell in CELLS:
+            row, col = int(cell[1]), int(cell[2])
+            neighbors = get_adjacent_cells(row, col)
+
+            # For every neighbor of the current cell, ensure that a connection implies both share the same color
+            for neighbor in neighbors:
+                E.add_constraint(Connection(color, cell, neighbor) >> (Path(color, cell) & Path(color, neighbor)))
+
 def add_completeness_constraints():
     """Ensure every cell is part of some path."""
     for cell in CELLS:
@@ -179,7 +213,9 @@ def flow_free_theory():
     add_exclusivity_constraints()
     add_bidirectional_constraints()
     add_completeness_constraints()
-    
+
+    add_connected_cells_same_color_constraint()
+    add_path_continuity_constraint() 
     return E
 
 # Solve the problem
