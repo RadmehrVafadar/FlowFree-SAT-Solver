@@ -211,9 +211,7 @@ def flow_free_theory():
     add_connection_constraints()
     add_continuity_constraints()
     add_exclusivity_constraints()
-    add_bidirectional_constraints()
     add_completeness_constraints()
-
     add_connected_cells_same_color_constraint()
     add_path_continuity_constraint() 
     return E

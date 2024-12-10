@@ -1,9 +1,9 @@
 
 import os, sys
 
-from flow_free import example_theory
+from run import example_theory
 
-USAGE = '\n\tpython3 flow_free.py [draft|final]\n'
+USAGE = '\n\tpython3 run.py [draft|final]\n'
 EXPECTED_VAR_MIN = 10
 EXPECTED_CONS_MIN = 50
 
